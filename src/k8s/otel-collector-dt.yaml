@@ -1,0 +1,318 @@
+# API reference https://github.com/open-telemetry/opentelemetry-operator/blob/main/docs/api.md
+# Refs for v1beta1 config: https://github.com/open-telemetry/opentelemetry-operator/issues/3011#issuecomment-2154118998
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: otelcol
+  namespace: otel-demo
+  labels:
+    app.kubernetes.io/name: opentelemetry-collector
+    app.kubernetes.io/instance: opentelemetry-demo
+    app.kubernetes.io/version: "0.128.0"
+    app.kubernetes.io/component: opentelemetry-operator
+spec:
+  mode: statefulset
+  image: otel/opentelemetry-collector-contrib:0.128.0
+  imagePullPolicy: Always
+  serviceAccount: otelcontribcol
+  autoscaler:
+    minReplicas: 1
+    maxReplicas: 2
+    targetCPUUtilization: 50
+    targetMemoryUtilization: 60
+  resources:
+    limits:
+      cpu: 100m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  targetAllocator:
+    enabled: true
+    serviceAccount: opentelemetry-targetallocator-sa
+    prometheusCR:
+      enabled: true
+      podMonitorSelector: {}
+      serviceMonitorSelector: {}
+  env:
+    - name: DT_TOKEN
+      valueFrom:
+        secretKeyRef:
+          key: DT_TOKEN
+          name: otel-collector-secret
+    - name: DT_ENV
+      valueFrom:
+        secretKeyRef:
+          key: DT_ENV
+          name: otel-collector-secret
+    - name: K8S_NODE_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
+    - name: K8S_POD_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.name
+    - name: K8S_POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+    # This ain't pretty, but it will do for now
+    - name: CLUSTERNAME
+      value: "otel-demo"
+
+  config:
+    receivers:
+      otlp:
+        protocols:
+          grpc: {}
+          http: {}
+
+      prometheus:
+        config:
+          scrape_configs: []
+            ## NOTE: Scrape configs for the collector aren't needed if you're sending internal Collector telemetry direclty 
+            ## to an o11y backend
+            # # Collector metrics
+            # - job_name: 'otel-collector'
+            #   scrape_interval: 10s
+            #   static_configs:
+            #   - targets: [ '0.0.0.0:8888' ]
+
+      # Logs - Pull k8s objects at given interval, and produce logs
+      k8sobjects:
+        auth_type: serviceAccount
+        objects:
+          - name: pods
+            mode: pull
+            interval: 30m
+
+      # Collects cluster-level metrics and entity events from the Kubernetes API server
+      k8s_cluster:
+        node_conditions_to_report: [ Ready, MemoryPressure ]
+        allocatable_types_to_report: [ cpu, memory, storage ]
+        resource_attributes:
+          container.id:
+            enabled: false
+
+      # This does the same thing as the Prometheus kube-state-metrics exporter
+      # Reference: https://github.com/kubernetes/kube-state-metrics
+      # Pulls node, pod, container, and volume metrics from the API server on a kubelet
+      kubeletstats:
+        collection_interval: 20s
+        auth_type: "serviceAccount"
+        endpoint: "https://${env:K8S_NODE_NAME}:10250"
+        insecure_skip_verify: true
+
+    processors:
+      # Required for Dynatrace metrics processing
+      # Ref: https://docs.dynatrace.com/docs/ingest-from/opentelemetry/collector/configuration#delta-metrics
+      cumulativetodelta: {}
+      batch:
+        send_batch_max_size: 1000
+        timeout: 30s
+        send_batch_size : 800
+
+      # Prevent out of memory (OOM) situations on the Collector
+      # https://github.com/open-telemetry/opentelemetry-collector/issues/9043#issuecomment-1863637337
+      memory_limiter:
+        check_interval: 1s
+        limit_percentage: 75
+        spike_limit_percentage: 15
+
+      # Modifies telemetry based on configuration using the OpenTelemetry Transformation Language (OTTL)
+      # This particular transform processor configuration k8s attributes to Dynatrace attributes
+      transform:
+        error_mode: ignore
+        log_statements:
+          - context: resource
+            statements:
+              - set(attributes["dt.kubernetes.workload.kind"], "statefulset") where IsString(attributes["k8s.statefulset.name"])
+              - set(attributes["dt.kubernetes.workload.name"], attributes["k8s.statefulset.name"]) where IsString(attributes["k8s.statefulset.name"])
+              - set(attributes["dt.kubernetes.workload.kind"], "deployment") where IsString(attributes["k8s.deployment.name"])
+              - set(attributes["dt.kubernetes.workload.name"], attributes["k8s.deployment.name"]) where IsString(attributes["k8s.deployment.name"])
+              - set(attributes["dt.kubernetes.workload.kind"], "daemonset") where IsString(attributes["k8s.daemonset.name"])
+              - set(attributes["dt.kubernetes.workload.name"], attributes["k8s.daemonset.name"]) where IsString(attributes["k8s.daemonset.name"])
+              - set(attributes["dt.kubernetes.cluster.id"], attributes["k8s.cluster.uid"]) where IsString(attributes["k8s.cluster.uid"])
+    
+        metric_statements:
+          - context: resource
+            statements:
+              - set(attributes["dt.kubernetes.workload.kind"], "statefulset") where IsString(attributes["k8s.statefulset.name"])
+              - set(attributes["dt.kubernetes.workload.name"], attributes["k8s.statefulset.name"]) where IsString(attributes["k8s.statefulset.name"])
+              - set(attributes["dt.kubernetes.workload.kind"], "deployment") where IsString(attributes["k8s.deployment.name"])
+              - set(attributes["dt.kubernetes.workload.name"], attributes["k8s.deployment.name"]) where IsString(attributes["k8s.deployment.name"])
+              - set(attributes["dt.kubernetes.workload.kind"], "daemonset") where IsString(attributes["k8s.daemonset.name"])
+              - set(attributes["dt.kubernetes.workload.name"], attributes["k8s.daemonset.name"]) where IsString(attributes["k8s.daemonset.name"])
+              - set(attributes["dt.kubernetes.cluster.id"], attributes["k8s.cluster.uid"]) where IsString(attributes["k8s.cluster.uid"])
+        trace_statements:
+          - context: resource
+            statements:
+              - set(attributes["dt.kubernetes.workload.kind"], "statefulset") where IsString(attributes["k8s.statefulset.name"])
+              - set(attributes["dt.kubernetes.workload.name"], attributes["k8s.statefulset.name"]) where IsString(attributes["k8s.statefulset.name"])
+              - set(attributes["dt.kubernetes.workload.kind"], "deployment") where IsString(attributes["k8s.deployment.name"])
+              - set(attributes["dt.kubernetes.workload.name"], attributes["k8s.deployment.name"]) where IsString(attributes["k8s.deployment.name"])
+              - set(attributes["dt.kubernetes.workload.kind"], "daemonset") where IsString(attributes["k8s.daemonset.name"])
+              - set(attributes["dt.kubernetes.workload.name"], attributes["k8s.daemonset.name"]) where IsString(attributes["k8s.daemonset.name"])
+              - set(attributes["dt.kubernetes.cluster.id"], attributes["k8s.cluster.uid"]) where IsString(attributes["k8s.cluster.uid"])
+
+      # Convert Prometheus metrics names to OTel metrics names
+      transform/metrics:
+        error_mode: ignore
+        metric_statements:
+          - context: datapoint
+            statements:
+                - set(attributes["k8s.container.name"], attributes["container_name"]) where attributes["container_name"] != nil
+                - set(attributes["k8s.pod.name"], attributes["pod_name"]) where attributes["pod_name"] != nil
+                - set(attributes["k8s.namespace.name"], attributes["container_namespace"]) where attributes["container_namespace"] != nil      
+
+
+      # Extract fields from k8s objects from log lines
+      transform/k8s:
+        error_mode: ignore
+        log_statements:
+          - context: log
+            statements:
+              - merge_maps(cache, body, "upsert")
+              - set(attributes["k8s.object.kind"], cache["kind"]) where cache["kind"] != nil
+              - merge_maps(cache,cache["metadata"], "upsert") where cache["metadata"] != nil
+              - set(attributes["k8s.namespace.name"], cache["namespace"]) where cache["namespace"] != nil
+              - merge_maps(cache,ExtractPatterns(String(cache["ownerReferences"]),"^.*kind\\\":\\\"(?P<kindowner>[^\"]*)\".*name\\\":\\\"(?P<nameowner>[^\"]*)\\\".*$"), "upsert") where cache["ownerReferences"] != nil
+              - set(attributes["dt.kubernetes.workload.kind"], ConvertCase( cache["kindowner"], "lower") ) where cache["kindowner"] != nil
+              - set(attributes["dt.kubernetes.workload.name"], cache["nameowner"]) where cache["nameowner"] != nil
+              - set(attributes["k8s.object.labels"], cache["labels"]) where cache["labels"] != nil
+              - set(attributes["k8s.pod.name"], cache["name"]) where cache["name"] != nil
+              - merge_maps(cache,cache["spec"], "upsert") where cache["spec"] != nil
+              - set(attributes["k8s.object.nodeselector"], String(cache["nodeSelector"])) where cache["nodeSelector"]!= nil
+              - set(attributes["k8s.node.name"], cache["nodeName"]) where cache["nodeName"]!= nil
+              - set(attributes["k8s.status"],cache["status"]) where cache["status"] != nil
+
+      # Enriches traces, logs, and metrics with k8s attributes
+      # The processor automatically discovers k8s resources (pods), extracts metadata from them and adds the 
+      # extracted metadata to the relevant spans, metrics and logs as resource attributes
+      k8sattributes:
+        auth_type: "serviceAccount"
+        passthrough: false
+    
+        extract:
+          metadata:
+            - k8s.pod.name
+            - k8s.pod.uid
+            - k8s.deployment.name
+            - k8s.statefulset.name
+            - k8s.daemonset.name
+            - k8s.cronjob.name
+            - k8s.namespace.name
+            - k8s.node.name
+            - k8s.cluster.uid
+        pod_association:
+          - sources:
+            - from: resource_attribute
+              name: k8s.pod.name
+            - from: resource_attribute
+              name: k8s.namespace.name
+          - sources:
+              - from: connection
+
+
+      # Enriches metrics (because we put in metrics pipeline only) with k8s attributes
+      k8sattributes/k8s:
+        extract:
+          metadata:
+            - k8s.cluster.uid
+            - k8s.node.name
+        pod_association:
+          - sources:
+              - from: connection
+
+      # Apply changes on resource attributes
+      resource:
+        attributes:
+          - key: k8s.cluster.name
+            value: ${CLUSTERNAME}
+            action: insert
+
+
+    exporters:
+      otlp/jaeger:
+        endpoint: 'otel-jaeger-collector:4317'
+        tls:
+          insecure: true
+      otlphttp/dt:
+        endpoint: "https://${DT_ENV}/api/v2/otlp"
+        headers:
+          Authorization: "Api-Token ${DT_TOKEN}"
+      debug:
+        verbosity: detailed
+
+    service:
+      pipelines:
+        traces:
+          receivers: [ otlp ]
+          processors: [ memory_limiter, k8sattributes, transform, batch ]
+          exporters: [ otlp/jaeger, otlphttp/dt, debug ]
+        metrics:
+          receivers: [ otlp ]
+          processors: [ memory_limiter, transform/metrics, k8sattributes, transform, cumulativetodelta, batch ]
+          exporters: [ otlphttp/dt, debug ]
+        logs:
+          receivers: [ otlp ]
+          processors: [ memory_limiter, k8sattributes, transform, batch ]
+          exporters: [ otlphttp/dt, debug ]
+
+        # These pipelines are specific to our Kepler setup. We have separate pipelines so that we don't "pollute" OTel
+        # data coming in from our application traces, logs, and metrics.
+        metrics/prom:
+          receivers: [ prometheus, k8s_cluster, kubeletstats ]
+          processors: [ memory_limiter, transform/metrics, k8sattributes/k8s, cumulativetodelta, batch ]
+          exporters: [ otlphttp/dt, debug ]
+
+        logs/k8s:
+          receivers: [ k8sobjects ]
+          processors: [ memory_limiter, transform/k8s, k8sattributes/k8s, resource, batch ]
+          exporters: [ otlphttp/dt, debug ]
+
+      telemetry:
+        resource:
+          k8s.namespace.name: "${env:K8S_POD_NAMESPACE}"
+          k8s.pod.name: "${env:K8S_POD_NAME}"
+          k8s.node.name: "${env:K8S_NODE_NAME}"
+
+        metrics:
+          level: detailed
+          readers:
+            - periodic:
+                # interval: 1000
+                exporter:
+                  otlp:
+                    protocol: http/protobuf
+                    temporality_preference: delta
+                    # endpoint: http://otelcol-collector.opentelemetry.svc.cluster.local:4318
+                    # Workaround to get temporality_preference config to get picked up: https://github.com/open-telemetry/opentelemetry-collector/issues/13080
+                    endpoint: https://${DT_ENV}/api/v2/otlp/v1/metrics
+                    headers:
+                      - name: Authorization
+                        value: "Api-Token ${DT_TOKEN}"
+        # logs:
+        #   level: info
+        #   output_paths: ["stdout"]
+        #   error_output_paths: ["stderr"]
+        #   processors:
+        #     - batch:
+        #         exporter:
+        #           otlp:
+        #             protocol: http/protobuf
+        #             endpoint: https://${DT_ENV}/api/v2/otlp/v1/logs
+        #             headers:
+        #               - name: Authorization
+        #                 value: "Api-Token ${DT_TOKEN}"
+        # traces:
+        #   processors:
+        #     - batch:
+        #         exporter:
+        #           otlp:
+        #             protocol: http/protobuf
+        #             endpoint: https://${DT_ENV}/api/v2/otlp/v1/traces
+        #             headers:
+        #               - name: Authorization
+        #                 value: "Api-Token ${DT_TOKEN}"

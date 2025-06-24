@@ -193,6 +193,8 @@ spec:
           level: detailed
           readers:
             - periodic:
+                interval: 10000
+                timeout: 5000            
                 exporter:
                   otlp:
                     protocol: http/protobuf
@@ -202,5 +204,3 @@ spec:
                     # headers:
                     #   - name: Authorization
                     #     value: "Api-Token ${DT_TOKEN}"
-              interval: 10000
-              timeout: 5000

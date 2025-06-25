@@ -11167,7 +11167,7 @@ spec:
               value: service.name=$(OTEL_SERVICE_NAME),service.namespace=opentelemetry-demo,service.version=2.0.2
           resources:
             limits:
-              memory: 160Mi
+              memory: 250Mi
           volumeMounts:
       initContainers:
         - command:
@@ -12499,10 +12499,10 @@ spec:
           containerPort: 9600
         resources:
           limits:
-            memory: 1100Mi
+            memory: 1200Mi
           requests:
             cpu: 1000m
-            memory: 100Mi
+            memory: 500Mi
         env:
         - name: node.name
           valueFrom:
@@ -12515,7 +12515,7 @@ spec:
         - name: network.host
           value: "0.0.0.0"
         - name: OPENSEARCH_JAVA_OPTS
-          value: "-Xms300m -Xmx300m"
+          value: "-Xms300m -Xmx900m"
         - name: node.roles
           value: "master,ingest,data,remote_cluster_client,"
         - name: discovery.type
@@ -12526,6 +12526,8 @@ spec:
           value: "true"
         - name: DISABLE_SECURITY_PLUGIN
           value: "true"
+        - name: _JAVA_OPTIONS
+          value: -XX:UseSVE=0
         volumeMounts:
         - name: config-emptydir
           mountPath: /usr/share/opensearch/config/opensearch.yml

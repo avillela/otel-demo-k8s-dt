@@ -22,8 +22,8 @@ spec:
     targetMemoryUtilization: 60
   resources:
     limits:
-      cpu: 100m
-      memory: 256Mi
+      cpu: 200m
+      memory: 500Mi
     requests:
       cpu: 100m
       memory: 128Mi
@@ -157,8 +157,8 @@ spec:
           - from: connection
       memory_limiter:
         check_interval: 5s
-        limit_percentage: 80
-        spike_limit_percentage: 25
+        limit_percentage: 85
+        spike_limit_percentage: 15
       resource:
         attributes:
         - action: insert

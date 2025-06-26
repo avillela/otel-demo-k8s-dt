@@ -31,4 +31,4 @@ gcloud container clusters create "${K8S_CLUSTER_NAME}" \
   --monitoring=NONE --logging=NONE
 
 # Delete cluster
-# gcloud container clusters delete ${GKE_CLUSTER_NAME} --zone=${GCP_ZONE}
+# gcloud container clusters delete ${K8S_CLUSTER_NAME} --zone=${GCP_ZONE}

@@ -14,8 +14,8 @@ else
 fi
 
 kubectl apply -f src/k8s/namespace.yaml
-kubectl -n dynatrace create secret generic otel-collector-secret --from-literal="DT_TOKEN=$DT_OTEL_TOKEN" --from-literal="DT_ENV=$DT_URL"
-# kubectl apply -f src/k8s/otel-collector-secret-dt.yaml
+# kubectl -n otel-demo create secret generic otel-collector-secret --from-literal="DT_TOKEN=$DT_OTEL_TOKEN" --from-literal="DT_ENV=$DT_URL"
+kubectl apply -f src/k8s/otel-collector-secret-dt.yaml
 kubectl apply -f src/k8s/otel-collector-rbac.yaml
 kubectl apply -f src/k8s/ta-rbac.yaml
 kubectl apply -f src/k8s/otel-collector-dt.yaml

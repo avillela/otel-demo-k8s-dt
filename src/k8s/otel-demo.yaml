@@ -11094,8 +11094,8 @@ spec:
               value: otlp
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.name=$(OTEL_SERVICE_NAME),service.namespace=opentelemetry-demo,service.version=2.0.2
-            - name: _JAVA_OPTIONS
-              value: -XX:UseSVE=0
+            # - name: _JAVA_OPTIONS
+            #   value: -XX:UseSVE=0
           resources:
             limits:
               memory: 500Mi
@@ -11566,8 +11566,8 @@ spec:
               value: http://$(OTEL_COLLECTOR_NAME):4318
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.name=$(OTEL_SERVICE_NAME),service.namespace=opentelemetry-demo,service.version=2.0.2
-            - name: _JAVA_OPTIONS
-              value: -XX:UseSVE=0
+            # - name: _JAVA_OPTIONS
+            #   value: -XX:UseSVE=0
           resources:
             limits:
               memory: 500Mi
@@ -12526,8 +12526,8 @@ spec:
           value: "true"
         - name: DISABLE_SECURITY_PLUGIN
           value: "true"
-        - name: _JAVA_OPTIONS
-          value: -XX:UseSVE=0
+        # - name: _JAVA_OPTIONS
+        #   value: -XX:UseSVE=0
         volumeMounts:
         - name: config-emptydir
           mountPath: /usr/share/opensearch/config/opensearch.yml

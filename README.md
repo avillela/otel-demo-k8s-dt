@@ -4,24 +4,30 @@
 
 ## Quickstart
 
-1- Create KinD cluster
+1- Create Kubernetes cluster
+
+This will create a Kubernetes cluster in Google Cloud.
 
 ```bash
-./src/scripts/00-create-kind-cluster.sh
+./src/scripts/00-create-gke-cluster.sh .env
 ```
 
 2- Install OTel Operator & Dynatrace Operator
 
-* Collector latest version: [0.128.8](https://github.com/open-telemetry/opentelemetry-collector/releases/tag/v0.128.0)
-* Operator latest version: [0.127.0](https://github.com/open-telemetry/opentelemetry-operator/releases/tag/v0.127.0)
+Installs the Dynatrace Operator and DynaKube resource first, before installing the OTel Operator.
+
+DynaKube should be installed before deploying the OTel Demo, since it injects an init-container inside the OTel Operator pod.
 
 ```bash
-./src/scripts/01-install-otel-operator.sh
-./src/scripts/02-install-dt-operator.sh
+./src/scripts/01-install-dt-operator.sh .env
+./src/scripts/02-install-otel-operator.sh
 ```
 
 3- Deploy the OTel Demo
 
+DynaKube should be installed before deploying the OTel Demo, since it injects an init-container inside the OTel Demo pods.
+
 ```bash
-./src/scripts/03-deploy-resources.sh
+./src/scripts/03-deploy-resources.sh .env
 ```
+

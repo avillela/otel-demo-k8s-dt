@@ -28,6 +28,6 @@ DynaKube should be installed before deploying the OTel Demo, since it injects an
 DynaKube should be installed before deploying the OTel Demo, since it injects an init-container inside the OTel Demo pods.
 
 ```bash
-./src/scripts/03-deploy-resources.sh .env
+./src/scripts/03-deploy-resources.sh
 ```
 

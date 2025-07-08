@@ -24,9 +24,9 @@ gcloud config set project ${GCP_PROJECT_NAME}
 # gcloud compute zones list
 
 # Create GKE cluster
-gcloud container clusters create "${K8S_CLUSTER_NAME}" \
-  --zone ${GCP_ZONE} \
-  --machine-type=${GKE_MACHINE_TYPE} \
+gcloud container clusters create "$K8S_CLUSTER_NAME" \
+  --zone $GCP_ZONE \
+  --machine-type=$GKE_MACHINE_TYPE \
   --num-nodes=1 \
   --monitoring=NONE --logging=NONE
 

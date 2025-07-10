@@ -1,7 +1,5 @@
 # OpenTelemetry Demo on Kubernetes with Dynatrace Operator
 
-
-
 ## Quickstart
 
 1- Make a copy of the .env file
@@ -38,4 +36,3 @@ DynaKube should be installed before deploying the OTel Demo, since it injects an
 ```bash
 ./src/scripts/03-deploy-resources.sh
 ```
-

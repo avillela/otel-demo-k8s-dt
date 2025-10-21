@@ -8,9 +8,10 @@ applyTo: "**"
 
 ## Service response time guidelines
 - When fetching the response time, use the dt.service.request.response_time
+- When fetching the p50 response time, use percentile(dt.service.request.response_time, 50)
 
 ## Guidelines for fetching Dynatrace services
-- When fetching services in Dynatrace, fetch values from Always fetch dt.entity.service, but display the service names from the entity.name field
+- When fetching service names in Dynatrace, always query dt.entity.service, but always display the service names from the entity.name field
 
 ## Display guidelines
 - Use the name field, not the ID field when listing services.

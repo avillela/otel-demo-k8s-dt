@@ -1,2 +1,4 @@
 *secret*
 dynakube.yaml
+.env.*
+.DS_Store

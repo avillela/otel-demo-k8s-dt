@@ -1,0 +1,5 @@
+[*] How many services are running in Dynatrace astroshop namespace?
+[*] Give me the avg response time per service in the astroshop namespace ?
+[*] How many astroshop services have associated logs?
+[*] Show me the last 5 traces, include spand id, trace is, start time, end time and number of associated logs for x service?
+[*] Can you show me the logs associated with Span ID y?

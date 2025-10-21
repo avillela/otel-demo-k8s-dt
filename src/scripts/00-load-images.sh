@@ -24,6 +24,7 @@ docker pull jaegertracing/all-in-one:1.53.0
 docker pull docker.io/grafana/grafana:11.5.2
 docker pull quay.io/prometheus/prometheus:v3.1.0
 docker pull opensearchproject/opensearch:2.19.0
+docker pull otel/opentelemetry-collector-contrib:0.128.0
 
 # Load images into KinD
 kind load docker-image ghcr.io/open-telemetry/demo:2.0.2-accounting -n otel-demo
@@ -49,3 +50,4 @@ kind load docker-image jaegertracing/all-in-one:1.53.0 -n otel-demo
 kind load docker-image docker.io/grafana/grafana:11.5.2 -n otel-demo
 kind load docker-image quay.io/prometheus/prometheus:v3.1.0 -n otel-demo
 kind load docker-image opensearchproject/opensearch:2.19.0 -n otel-demo
+kind load docker-image otel/opentelemetry-collector-contrib:0.128.0 -n otel-demo

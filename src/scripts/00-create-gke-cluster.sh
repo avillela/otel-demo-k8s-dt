@@ -15,7 +15,7 @@ fi
 
 echo "GCP project: ${GCP_PROJECT_NAME}"
 echo "GCP zone: ${GCP_ZONE}"
-echo "GCP cluste name: ${K8S_CLUSTER_NAME}"
+echo "GCP cluster name: ${K8S_CLUSTER_NAME}"
 
 # gcloud setup
 gcloud auth login

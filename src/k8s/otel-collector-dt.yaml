@@ -27,13 +27,13 @@ spec:
     requests:
       cpu: 100m
       memory: 128Mi
-  # targetAllocator:
-  #   enabled: true
-  #   serviceAccount: opentelemetry-targetallocator-sa
-  #   prometheusCR:
-  #     enabled: true
-  #     podMonitorSelector: {}
-  #     serviceMonitorSelector: {}
+  targetAllocator:
+    enabled: true
+    serviceAccount: opentelemetry-targetallocator-sa
+    prometheusCR:
+      enabled: true
+      podMonitorSelector: {}
+      serviceMonitorSelector: {}
   env:
     - name: DT_TOKEN
       valueFrom:
@@ -89,20 +89,122 @@ spec:
               - http://*
               - https://*
             endpoint: ${env:MY_POD_IP}:4318
+
       prometheus:
         config:
-          scrape_configs:
-          - job_name: opentelemetry-collector
-            scrape_interval: 10s
-            static_configs:
-            - targets:
-              - ${env:MY_POD_IP}:8888
+          scrape_configs: []
       redis:
         collection_interval: 10s
         endpoint: valkey-cart:6379
       zipkin:
         endpoint: ${env:MY_POD_IP}:9411
 
+      # Logs - Pull k8s objects at given interval, and produce logs
+      k8sobjects:
+        auth_type: serviceAccount
+        objects:
+          - name: pods
+            mode: pull
+            interval: 30m
+
+      # Collects cluster-level metrics and entity events from the Kubernetes API server
+      k8s_cluster:
+        node_conditions_to_report: [ Ready, MemoryPressure ]
+        allocatable_types_to_report: [ cpu, memory, storage ]
+        resource_attributes:
+          container.id:
+            enabled: false
+
+      # This does the same thing as the Prometheus kube-state-metrics exporter
+      # Reference: https://github.com/kubernetes/kube-state-metrics
+      # Pulls node, pod, container, and volume metrics from the API server on a kubelet
+      kubeletstats:
+        collection_interval: 20s
+        auth_type: "serviceAccount"
+        endpoint: "https://${env:K8S_NODE_NAME}:10250"
+        insecure_skip_verify: true
+
+    processors:
+      batch: {}
+      cumulativetodelta: {}
+
+      memory_limiter:
+        check_interval: 5s
+        limit_percentage: 85
+        spike_limit_percentage: 15
+
+      transform:
+        error_mode: ignore
+        trace_statements: &dynatrace_transformations
+          # Set attributes taken from k8s metadata.
+          - context: resource
+            statements:
+              - set(attributes["k8s.cluster.name"], "${env:CLUSTER_NAME}")
+              - set(attributes["k8s.workload.kind"], "job") where IsString(attributes["k8s.job.name"])
+              - set(attributes["k8s.workload.name"], attributes["k8s.job.name"]) where IsString(attributes["k8s.job.name"])
+              - set(attributes["k8s.workload.kind"], "cronjob") where IsString(attributes["k8s.cronjob.name"])
+              - set(attributes["k8s.workload.name"], attributes["k8s.cronjob.name"]) where IsString(attributes["k8s.cronjob.name"])
+              - set(attributes["k8s.workload.kind"], "daemonset") where IsString(attributes["k8s.daemonset.name"])
+              - set(attributes["k8s.workload.name"], attributes["k8s.daemonset.name"]) where IsString(attributes["k8s.daemonset.name"])
+              - set(attributes["k8s.workload.kind"], "statefulset") where IsString(attributes["k8s.statefulset.name"])
+              - set(attributes["k8s.workload.name"], attributes["k8s.statefulset.name"]) where IsString(attributes["k8s.statefulset.name"])
+              - set(attributes["k8s.workload.kind"], "replicaset") where IsString(attributes["k8s.replicaset.name"])
+              - set(attributes["k8s.workload.name"], attributes["k8s.replicaset.name"]) where IsString(attributes["k8s.replicaset.name"])
+              - set(attributes["k8s.workload.kind"], "deployment") where IsString(attributes["k8s.deployment.name"])
+              - set(attributes["k8s.workload.name"], attributes["k8s.deployment.name"]) where IsString(attributes["k8s.deployment.name"])
+              # remove the delete statements if you want to preserve these attributes
+              - delete_key(attributes, "k8s.deployment.name")
+              - delete_key(attributes, "k8s.replicaset.name")
+              - delete_key(attributes, "k8s.statefulset.name")
+              - delete_key(attributes, "k8s.daemonset.name")
+              - delete_key(attributes, "k8s.cronjob.name")
+              - delete_key(attributes, "k8s.job.name")
+          # Set attributes from metadata specified in Dynatrace and set through the Dynatrace Operator.
+          # For more info: https://docs.dynatrace.com/docs/shortlink/k8s-metadata-telemetry-enrichment
+          - context: resource
+            statements:
+              - merge_maps(attributes, ParseJSON(attributes["metadata.dynatrace.com"]), "upsert") where IsMatch(attributes["metadata.dynatrace.com"], "^\\{")
+              - delete_key(attributes, "metadata.dynatrace.com")
+        metric_statements: *dynatrace_transformations
+        log_statements: *dynatrace_transformations
+      k8sattributes:
+        extract:
+          metadata:
+            - k8s.pod.name
+            - k8s.pod.uid
+            - k8s.pod.ip
+            - k8s.deployment.name
+            - k8s.replicaset.name
+            - k8s.statefulset.name
+            - k8s.daemonset.name
+            - k8s.job.name
+            - k8s.cronjob.name
+            - k8s.namespace.name
+            - k8s.node.name
+            - k8s.cluster.uid
+            - k8s.container.name
+          annotations:
+            - from: pod
+              key_regex: metadata.dynatrace.com/(.*)
+              tag_name: $$1
+            - from: pod
+              key: metadata.dynatrace.com
+              tag_name: metadata.dynatrace.com
+        pod_association:
+          - sources:
+              - from: resource_attribute
+                name: k8s.pod.name
+              - from: resource_attribute
+                name: k8s.namespace.name
+          - sources:
+              - from: resource_attribute
+                name: k8s.pod.ip
+          - sources:
+              - from: resource_attribute
+                name: k8s.pod.uid
+          - sources:
+              - from: connection
+              
     connectors:
       spanmetrics: {}
 
@@ -127,50 +229,11 @@ spec:
         endpoint: http://prometheus:9090/api/v1/otlp
         tls:
           insecure: true
+
     extensions:
       health_check:
         endpoint: ${env:MY_POD_IP}:13133
-    processors:
-      batch: {}
-      k8sattributes:
-        extract:
-          metadata:
-          - k8s.namespace.name
-          - k8s.deployment.name
-          - k8s.statefulset.name
-          - k8s.daemonset.name
-          - k8s.cronjob.name
-          - k8s.job.name
-          - k8s.node.name
-          - k8s.pod.name
-          - k8s.pod.uid
-          - k8s.pod.start_time
-        passthrough: false
-        pod_association:
-        - sources:
-          - from: resource_attribute
-            name: k8s.pod.ip
-        - sources:
-          - from: resource_attribute
-            name: k8s.pod.uid
-        - sources:
-          - from: connection
-      memory_limiter:
-        check_interval: 5s
-        limit_percentage: 85
-        spike_limit_percentage: 15
-      resource:
-        attributes:
-        - action: insert
-          from_attribute: k8s.pod.uid
-          key: service.instance.id
-      transform:
-        error_mode: ignore
-        trace_statements:
-        - context: span
-          statements:
-          - replace_pattern(name, "\\?.*", "")
-          - replace_match(name, "GET /api/products/*", "GET /api/products/{productId}")
+
 
     service:
       extensions:
@@ -178,17 +241,23 @@ spec:
       pipelines:
         logs:
           receivers: [otlp]
-          processors: [k8sattributes, memory_limiter, resource, batch]
-          exporters: [opensearch, otlphttp/dt, debug]
+          processors: [k8sattributes, memory_limiter, transform, batch]
+          exporters: [otlphttp/dt, debug]
         metrics:
           receivers: [httpcheck/frontend-proxy, redis, otlp, spanmetrics]
-          processors: [k8sattributes, memory_limiter, resource, batch]
-          exporters: [otlphttp/prometheus, otlphttp/dt, debug]
+          processors: [k8sattributes, memory_limiter, transform, cumulativetodelta, batch]
+          exporters: [otlphttp/dt, debug]
         traces:
           receivers: [otlp, jaeger, zipkin]
-          processors: [k8sattributes, memory_limiter, resource, transform, batch]
-          exporters: [otlp, otlphttp/dt, debug, spanmetrics]
+          processors: [k8sattributes, memory_limiter, transform, batch]
+          exporters: [otlphttp/dt, debug, spanmetrics]
+
       telemetry:
+        resource:
+          k8s.namespace.name: "${env:K8S_POD_NAMESPACE}"
+          k8s.pod.name: "${env:K8S_POD_NAME}"
+          k8s.node.name: "${env:K8S_NODE_NAME}"
+
         metrics:
           level: detailed
           readers:

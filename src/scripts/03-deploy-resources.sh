@@ -9,7 +9,7 @@ if [[ -n "${ENVFILE}" && -f ${ENVFILE} ]]; then
   export $(grep -v '^#' ${ENVFILE} | xargs)
   echo "Environment variables loaded."
 else
-  echo "*** No ${ENVFILE} file found in the current directory. Exiting."
+  echo "*** No ENV ${ENVFILE} file found in the current directory. Exiting."
   exit 1
 fi
 
@@ -24,11 +24,12 @@ metadata:
   namespace: otel-demo
 type: Opaque
 stringData:
-  DT_TOKEN: $DT_API_TOKEN
+  DT_TOKEN: $DT_OTEL_TOKEN
   DT_ENV: $DT_URL
 EOF
 
 kubectl apply -f src/k8s/otel-collector-rbac.yaml
 kubectl apply -f src/k8s/ta-rbac.yaml
 kubectl apply -f src/k8s/otel-collector-dt.yaml
+# kubectl apply -f src/k8s/otel-collector-dt-host-metrics.yaml
 kubectl apply --server-side --force-conflicts -f src/k8s/otel-demo.yaml

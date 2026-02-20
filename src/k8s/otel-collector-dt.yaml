@@ -63,7 +63,7 @@ spec:
           apiVersion: v1
           fieldPath: status.podIP
     # This ain't pretty, but it will do for now
-    - name: CLUSTERNAME
+    - name: CLUSTER_NAME
       value: "otel-demo"
 
   config:

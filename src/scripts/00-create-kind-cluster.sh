@@ -9,7 +9,7 @@ if [[ -n "${ENVFILE}" && -f ${ENVFILE} ]]; then
   export $(grep -v '^#' ${ENVFILE} | xargs)
   echo "Environment variables loaded."
 else
-  echo "*** No ${ENVFILE} file found in the current directory. Exiting."
+  echo "*** No ENV ${ENVFILE} file found in the current directory. Exiting."
   exit 1
 fi
 

@@ -16,10 +16,15 @@ fi
 
 #### Deploy the Dynatrace Operator
 helm upgrade dynatrace-operator oci://public.ecr.aws/dynatrace/dynatrace-operator \
-  --version 1.5.1 \
+  --version 1.9.0 \
   --create-namespace --namespace dynatrace \
   --install \
   --atomic
+# helm upgrade dynatrace-operator oci://public.ecr.aws/dynatrace/dynatrace-operator \
+#   --version 1.5.1 \
+#   --create-namespace --namespace dynatrace \
+#   --install \
+#   --atomic
 kubectl -n dynatrace wait pod --for=condition=ready --selector=app.kubernetes.io/name=dynatrace-operator,app.kubernetes.io/component=webhook --timeout=300s
 kubectl -n dynatrace create secret generic dynakube-secret --from-literal="apiToken=$DT_OPERATOR_TOKEN" --from-literal="dataIngestToken=$DT_OTEL_TOKEN"
 
